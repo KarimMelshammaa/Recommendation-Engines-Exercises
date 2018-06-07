@@ -1,0 +1,304 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+# IE - Master in Business Analytics and Big Data
+Recommendation Systems
+
+Building a Collaborative Filtering Engine
+
+Author: Karim El-Shammaa
+
+========================================================
+
+# Initialization
+
+Import libraries
+
+```{r}
+library(dplyr)
+library(ggplot2)
+```
+
+Load the critics dataset.
+
+```{r}
+
+critics <- read.csv("D:/IE Material/Term II/Recommendation Engines/IE-Lab1-Package/Building a Collaborative Filtering Engine/Problem/critics.csv")
+```
+
+# 1) Pearson correlation coefficient 
+Calculate the Pearson correlation coefficient between Victoria and Nuria
+
+**Expected correlation between Victoria and Nuria**: 0.3651484
+
+```{r fig.width=7, fig.height=6}
+
+# Subsetting rows containing Victoria and Nuria and removing NAs
+nv = critics %>%
+  filter(User == 'Victoria' | User == 'Nuria') %>%
+  select_if(colSums(is.na(.)) == 0)
+
+# Setting the rownames
+rownames(nv) = c("Nuria", "Victoria")
+
+# Removing the User column
+nv = nv %>%
+  select(-User)
+
+# Converting the new vector to a dataframe
+nv = as.data.frame(nv)
+
+# Converting the values to Numeric
+vic = as.numeric(nv[2,c(1:8)])
+nur = as.numeric(nv[1,c(1:8)])
+
+# Computing the Pearson Correlation
+y = cor(vic, nur, method = "pearson")
+
+# Printing the Results
+print(paste("Expected correlation between Victoria and Nuria:", round(y,7)))
+
+```
+
+# 2) Compare two movie critics
+Using the calculated Pearson correlation in the previous section. Compare and show the movie ratings for Victoria and Nuria on a scatter plot. How is this compared with the same ratings of Maria and Nerea on a scatter plot? What about Chris and Jim? What it means?
+
+```{r}
+
+# Victoria and Nuria
+
+
+# Subsetting rows containing Victoria and Nuria and removing NAs
+nv = critics %>%
+  filter(User == 'Victoria' | User == 'Nuria') %>%
+  select_if(colSums(is.na(.)) == 0)
+
+# Setting the rownames
+rownames(nv) = c("Nuria", "Victoria")
+
+# Removing the User column
+nv = nv %>%
+  select(-User)
+
+# Transposing Victoria and Nuria's vector for easier plotting
+nv = t(nv)
+
+# Reconverting their vector to dataframe
+nv = as.data.frame(nv)
+
+# Removing the rownames
+rownames(nv) = c()
+
+# Plotting the correlation between Victoria and Nuria
+plot(x = nv$Victoria, y = nv$Nuria, xlab = "Victoria's Ratings", ylab = "Nuria's Ratings")
+
+# Adding a line of best-fit to visualize the correlation
+abline(lm(nv$Nuria ~ nv$Victoria))
+
+# The correlation is positive, but not very high.
+
+
+
+# Maria and Nerea
+
+# Subsetting Maria and Nerea and removing NA's
+mn = critics %>%
+  filter(User == 'Maria' | User == 'Nerea') %>%
+  select_if(colSums(is.na(.)) == 0)
+
+# Setting the rownames
+rownames(mn) = c("Maria", "Nerea")
+
+# Removing the user column
+mn = mn %>%
+  select(-User)
+
+# Converting the vector to a dataframe
+mn = as.data.frame(mn)
+
+# Transposing the vector
+mn = t(mn)
+
+# Reconverting as dataframe
+mn = as.data.frame(mn)
+
+# Removing row names
+rownames(mn) = c()
+
+# Plotting the correlation between Maria and Nerea
+plot(x = mn$Maria, y = mn$Nerea, xlab = "Maria's Ratings", ylab = "Nerea's Ratings")
+
+# Adding a line of best-fit to visualize the correlation
+abline(lm(mn$Nerea ~ mn$Maria))
+
+
+# The correlation between Maria and Nerea is negative
+
+
+
+# Chris and Jim
+
+# Subsetting Chris and Jim and removing NA's
+cj = critics %>%
+  filter(User == 'Chris' | User == 'Jim') %>%
+  select_if(colSums(is.na(.)) == 0)
+
+# Setting the rownames
+rownames(cj) = c("Jim", "Chris")
+
+# Removing the user column
+cj = cj %>%
+  select(-User)
+
+# Converting the vector to a dataframe
+cj = as.data.frame(cj)
+
+# Transposing the vector
+cj = t(cj)
+
+# Reconverting as dataframe
+cj = as.data.frame(cj)
+
+# Removing row names
+rownames(cj) = c()
+
+# Plotting the correlation between Chris and Jim
+plot(x = cj$Chris, y = cj$Jim, xlab = "Chris's Ratings", ylab = "Jim's Ratings")
+
+# Adding a line of best-fit to visualize the correlation
+abline(lm(cj$Chris ~ cj$Jim))
+
+
+# There seems to be a high correlation between Chris and Jim
+
+```
+
+
+# 3) Top Recommendations 
+Get the top 5 movies recommended for Victoria. by using a weighted average of every other critic's rankings.
+
+**Expected result**:
+3.7917013044215, 'The Matrix'
+3.50776533175371, 'Forrest Gump'     
+3.33118834864677, 'The Sixth Sense' 
+3.11491825315719, 'Shakespeare in Love'
+2.9124513228665, 'Blade Runner'
+
+```{r fig.width=7, fig.height=6}
+
+# Selecting the Movies that Victoria did not watch or rate
+v_movies = critics %>%
+  select_if(is.na(critics[15,]))
+v_movies = colnames(v_movies)
+
+
+# Removing Victoria's row and creating a new data frame so as not to alter the original
+criticsv = critics  %>%
+  filter(User != 'Victoria')
+  
+# Adding two columns to compute the user average rating(ru) and correlation between Victoria and all other critics w(a,u)
+criticsv$user_avg_r = 1:19
+criticsv$weight = 1:19
+
+# For-loop to compute the user average rating(ru) and the correlation w(a,u)
+for (i in 1:19){
+  criticsv[i,22] = mean(as.numeric(criticsv[i,2:21]), na.rm = TRUE)
+  criticsv[i,23] = cor(as.numeric(criticsv[i,2:21]), as.numeric(critics[15,2:21]), use = "complete.obs")
+}
+
+# Calculating the sum of the correlations w(a,u) to be used later in the computations
+sum_weights = sum(abs(criticsv$weight))
+
+# Calculating the average ratings for Victoria (r-bar a)
+vic_avg = mean(as.numeric(critics[15,2:21]), na.rm = TRUE)
+
+# Creating a new data frame with the same dimensions as critics to compute the summations of the numerator: (ru,i - r-bar u,i) * w(a,u)
+numerators = criticsv[,1:21]
+
+# For-loop to perform the computation
+for (c in 2:21){
+  for (r in 1:19){
+    numerators[r,c] = (criticsv[r,c] - criticsv[r,22]) * criticsv[r,23]
+  }
+}
+
+# Creating a data frame to compute the summation of the numerators: 
+#sum((ru,i - r-bar u,i) * w(a,u))
+summation = data.frame(matrix(ncol = 20, nrow = 1))
+colnames(summation) = colnames(criticsv)[2:21]
+
+# For-loop to perform the computation
+for (c in 2:21){
+  summation[1,c-1] = sum(numerators[,c], na.rm = TRUE)
+}
+
+# Creating a data frame to compute the rest of the equation: dividing by sum(w(a,u)) and adding (r-bar a)
+predictions = data.frame(matrix(ncol = 20, nrow = 1))
+colnames(predictions) = colnames(critics[2:20])
+
+# For-loop to perform the computation
+for (c in 1:20){
+  predictions[1,c] = (summation[1,c]/sum_weights) + vic_avg
+}
+
+# Filtering predictions to only select movies that Victoria did not rate
+predictions = predictions %>%
+  select(v_movies)
+
+# Moving the predictions data frame to another data frame to transpose and print
+x = data.frame(predictions)
+x = t(x)
+x = data.frame(x)
+
+# Adding a column for the movie names
+x$movie = 1:7
+x$movie = rownames(x)
+
+# Arranging the results in descending order
+x = x %>%
+  arrange(desc(x)) %>%
+  slice(1:5)
+
+# Printing the result
+for (i in 1:5){
+  print(paste(x[i,1],",", x[i,2]))
+}
+
+```
+
+# 4) Top similar critics
+Return the top 5 critics that are most similar to Victoria. 
+
+**Expected result**:
+0.9449112, 'Rachel'
+0.5976143, 'Ana' 
+0.5789794, 'Oriol'
+0.4925922, 'Maria'
+0.4273247, 'Carles'
+
+```{r fig.width=7, fig.height=6}
+
+# Extracting the previously calculated correlation weights from the criticsv dataframe
+s_critics = criticsv %>%
+  select(User, weight) %>%
+  arrange(desc(weight)) %>%
+  slice(1:5)
+
+# Converting the names to character instead of factor for printing
+s_critics[,1] = lapply(s_critics[,1], as.character)
+
+# Rounding the correlation values
+s_critics[,2] = round(s_critics[,2],7)
+
+# Printing the Results
+for (i in 1:5){
+  print(paste(s_critics[i,2],",", s_critics[i,1]))
+}
+
+
+```
+
+
+

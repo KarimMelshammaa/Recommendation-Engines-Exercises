@@ -1,0 +1,384 @@
+# IE - Master in Business Analytics and Big Data
+Recommendation Systems
+
+Building a Non Personalized Recommendation Engine
+
+Author: Karim El-Shammaa
+
+========================================================
+
+# Initialization
+
+Import libraries
+
+```{r}
+
+library(dplyr)
+library(ggplot2)
+```
+
+Load the critics dataset.
+
+```{r}
+inp = read.csv("critics.csv")
+
+# Importing the movie names and fixing their format
+proper_names <- gsub("\\.\\.\\.", " - ", names(inp))
+proper_names <- gsub("\\.", " ", proper_names)
+```
+
+# 1) Top 5 Movies, by rating mean
+Calculate mean rating for each movie, ordered with the highest rating listed first, and plot the top 5.
+
+**Expected result**:
+3.600000, 'The Shawshank Redemption'
+3.266667, 'Star Wars IV - A New Hope'
+3.222222, 'Blade Runner'
+3.166667, 'Groundhog Day'
+3.062500, 'The Silence of the Lambs'
+
+```{r fig.width=7, fig.height=6}
+
+# Creating a new dataframe to calculate the ratings
+ratings = data.frame(matrix(ncol = 2, nrow = length(inp)-1))
+colnames(ratings) <- c("mean", "movie")
+
+# For-loop to calculate the mean rating for each movie and add the fixed name of the movie
+for (i in 2:length(inp)){
+  ratings[i-1,1] = round(mean(inp[c(1:20),i], na.rm = TRUE), 3)
+  ratings[i-1,2] = proper_names[i]
+}
+
+# Sorting the ratings by descending order
+ratings = ratings %>%
+  arrange(desc(mean))
+
+# Selecting the top 5 ratings
+top5 = ratings %>%
+  slice(1:5)
+
+# For-loop for printing
+for (i in 1:5){
+  print(paste(top5[i,1],",", top5[i,2]))
+}
+
+# Plotting the top5 movies with their ratings
+barplot(top5$mean, names.arg = top5$movie, ylim = c(0,5), cex.names = 0.5)
+
+```
+
+# 2) Top 5 Movies, by rating distribution
+Calculate the percentage of ratings for each movie that are 4 stars or higher. Order with the highest percentage first, and plot the top 5 movies with more high ratings distribution.
+
+**Expected result**:
+0.7000000, 'The Shawshank Redemption'
+0.5333333, 'Star Wars IV - A New Hope'
+0.5000000, 'Gladiator'
+0.4444444, 'Blade Runner'
+0.4375000, 'The Silence of the Lambs'
+
+```{r fig.width=7, fig.height=6}
+
+# Initializing a dataframe
+ratings_p = data.frame(matrix(ncol = 2, nrow = length(inp)-1))
+colnames(ratings_p) <- c("percentage", "movie")
+
+# Initializing a variable to count the number of ratings with 4 stars or more for each movie
+num_4 = 0
+
+# For-loop to count the number of ratings above 4 (that is not NA)
+for (i in 2:length(inp)){
+  num_4 = 0
+  for (f in 1:nrow(inp)){
+    if (!is.na(inp[f,i])){
+      if (inp[f,i] >= 4) {
+      num_4 = num_4 + 1
+      }
+    }
+  }
+  
+  # Calculating the percentage of the ratings for each movie
+  ratings_p[i-1,1] = round(num_4 / sum(complete.cases(inp[,i])), 3)
+  ratings_p[i-1,2] = proper_names[i]
+}
+
+# Arranging them by descending order and choosing top 5
+ratings_p = ratings_p %>%
+  arrange(desc(percentage))
+
+top5_p = ratings_p %>%
+  slice(1:5)
+
+# Printing the results
+for (i in 1:5){
+  print(paste(top5_p[i,1],",", top5_p[i,2]))
+}
+
+# Plotting a barplot
+barplot(top5_p$percentage, names.arg = top5_p$movie, ylim = c(0,1), cex.names = 0.5, cex.axis = 0.8)
+
+
+```
+
+# 3) Top 5 Movies, by quantity of ratings
+Count the number of ratings for each movie, order the one with most number of ratings first, submit the top 5.
+
+**Expected result**:
+17, 'Toy Story'
+16, 'The Silence of the Lambs'
+15, 'Star Wars IV - A New Hope'
+14, 'Star Wars VI - Return of the Jedi'
+13, 'Independence Day'
+
+```{r fig.width=7, fig.height=6}
+
+# Initializing a new dataframe
+ratings_c = data.frame(matrix(ncol = 2, nrow = length(inp)-1))
+colnames(ratings_c) <- c("count", "movie")
+
+# For-loop to remove the NA's
+for (i in 2:length(inp)){
+  ratings_c[i-1,1] = sum(!is.na(inp[,i]))
+  ratings_c[i-1,2] = proper_names[i]
+}
+
+# Sorting the count in descending order
+ratings_c = ratings_c %>%
+  arrange(desc(count))
+
+# Choosing the top 5
+top5_c = ratings_c %>%
+  slice(1:5)
+
+# Printing the results
+for (i in 1:5){
+  print(paste(top5_c[i,1],",", top5_c[i,2]))
+}
+
+
+```
+
+# 4) People who watched Star Wars IV also watched ...
+Calculate movies that most often occur with other movie. For each movie, calculate the percentage of the other movie raters who also rated that movie. Order with the highest percentage first, and submit the top 5. Select "Star.Wars.IV...A.New.Hope" movie by defaut. Use the (x+y)/x method.
+
+Top Occurences:
+0.9333333, 'Toy Story'
+0.8666667, 'Star Wars: Episode VI - Return of the Jedi'
+0.8000000, 'The Silence of the Lambs'
+0.7333333, 'Independence Day'
+0.6666667, 'Total Recall'
+
+```{r fig.width=7, fig.height=6}
+
+# Initializing a dataframe
+tmp = data.frame()
+
+# Removing NA's and User column and the Star Wars column
+tmp = inp %>%
+  filter(!is.na(Star.Wars.IV...A.New.Hope)) %>%
+  select(-Star.Wars.IV...A.New.Hope, -User) 
+
+# Initializing a dataframe
+ratings_o = data.frame(matrix(ncol = 2, nrow = length(tmp)))
+colnames(ratings_o) = c("user_p", "movie")
+
+# For-loop to calculate the percentage of the ratings
+for (i in 1:length(tmp)){
+  ratings_o[i,1] = round(sum(!is.na(tmp[,i])) / nrow(tmp), 3)
+  ratings_o[i,2] = proper_names[i+2]
+}
+
+# Sorting percentages by descending order
+ratings_o = ratings_o %>%
+  arrange(desc(user_p))
+
+# Choosing top 5
+top5_o = ratings_o %>%
+  slice(1:5)
+
+# Printing the results
+for (i in 1:5){
+  print(paste(top5_o[i,1],",", top5_o[i,2]))
+}
+
+
+```
+
+
+# 5) People who liked Babe also liked ...
+Calculate the movies better rated of people who liked a movie. Select the people who liked the movie "Babe" (4 or 5 stars) and provide the top 5 movies they liked most.
+
+**Expected result**:
+5.000, 'Pulp.Fiction'
+5.000, 'Groundhog.Day'
+4.500, 'The.Shawshank.Redemption'
+4.333, 'Toy.Story'
+4.000, 'Blade.Runner'
+
+```{r fig.width=7, fig.height=6}
+
+# Filtering the users who rated Babe 4 or higher, and removing the User and Babe columns
+babe = inp %>%
+  filter(Babe >= 4) %>%
+  select(-User, -Babe)
+
+# Initializing a dataframe
+ratings_b = data.frame(matrix(ncol = 2, nrow = length(babe)))
+colnames(ratings_b) = c("rating", "movie")
+
+# Calculating the mean rating for the movies
+for (i in 1:length(babe)){
+  ratings_b[i,1] = round(mean(babe[c(1:4),i], na.rm = TRUE), 3)
+  ratings_b[i,2] = proper_names[i+1]
+}
+
+# Arranging in descending order
+ratings_b = ratings_b %>%
+  arrange(desc(rating))
+
+# Choosing top 5
+top5_b = ratings_b %>%
+  slice(1:5)
+
+# Printing the results
+for (i in 1:5){
+  print(paste(top5_b[i,1],",", top5_b[i,2]))
+}
+
+
+```
+
+# 6) MovieLens
+Explore a real data set and provide non-personalized ratings. You can use the MovieLens database. You can find MovieLens' dataset here: http://files.grouplens.org/datasets/movielens/ml-10m-README.html
+
+```{r}
+
+# Importing the first dataset
+movies <- read_delim("D:/IE Material/Term II/Recommendation Engines/IE-Lab1-Package/Building a Non Personalized Recommendation/Problem/movies.dat", ";", escape_double = FALSE, locale = locale(), trim_ws = TRUE)
+
+movies = data.frame(movies)
+
+# Importing the second dataset
+ratings <- read.delim("ratings.dat", header = FALSE, sep = ":")
+
+# Removing the timestamp column as it is not needed
+ratings = ratings %>%
+  select(V1,V3,V5)
+
+# Adding column names
+colnames(ratings) = c("user_id", "movie_id", "rating")
+
+```
+
+
+# Finding movie with highest count of ratings:
+
+```{r}
+
+#Initializing a dataframe
+top10 = data.frame(matrix(ncol = 3, nrow = 10))
+
+# Finding the top 10 movies most rated movies
+top10 = ratings %>%
+  group_by(movie_id) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count)) %>%
+  slice(1:10)
+
+# Adding the movie names from the second dataset to the result
+movie_names = data.frame()
+movie_names = subset(movies, Movie_id %in% top10$movie_id, select = c(Movie_id,Movie))
+colnames(movie_names) = c("movie_id", "movie")
+top10 <- merge(top10,movie_names,by="movie_id")
+
+# Printing the results
+print("The Top 10 Movies with Most Ratings Are:")
+for (i in 1:10){
+  print(paste(top10[i,2],",", top10[i,3]))
+}
+
+```
+
+
+
+# Finding the top 10 highest rated movies
+
+Based on the count, we will set a minimum number of ratings of 20,000 when assessing the highest rated movies.
+
+```{r}
+
+# Initializing a dataframe
+top10 = data.frame(matrix(ncol = 3, nrow = 10))
+
+# Setting a threshold to rank movies with a minimum of 20000 ratings
+above_20 = ratings %>%
+  group_by(movie_id) %>%
+  summarise(count = n()) %>%
+  filter(count > 20000)
+
+# Calculating the mean rating for the movies and sorting by the top 10 highest
+top10 = ratings %>%
+  filter(movie_id %in% above_20$movie_id) %>%
+  group_by(movie_id) %>%
+  summarise(mean_rating = mean(rating, na.rm = TRUE)) %>%
+  arrange(desc(mean_rating)) %>%
+  slice(1:10)
+
+# Adding the names of the movies to the results from the other dataset
+movie_names = data.frame()
+movie_names = subset(movies, Movie_id %in% top10$movie_id, select = c(Movie_id,Movie))
+colnames(movie_names) = c("movie_id", "movie")
+top10 <- merge(top10,movie_names,by="movie_id")
+
+# Rounding up the mean rating results
+top10$mean_rating = round(top10$mean_rating, 2)
+
+# Printing the results
+print("The Top 10 Highest Rated Movies Are:")
+for (i in 1:10){
+  print(paste(top10[i,2],",", top10[i,3]))
+}
+
+```
+
+
+# People who liked American Beauty also liked:
+
+```{r}
+
+# Extracting the ID of American beauty from the movies dataset
+ab_id = movies[movies$Movie=="American Beauty (1999)",1]
+
+# Filtering the users who rated American Beauty with a 5
+users_ab = ratings %>%
+  filter(movie_id == ab_id) %>%
+  filter(rating == 5) %>%
+  group_by(user_id) %>%
+  summarise(count = n()) %>%
+  select(user_id)
+
+
+# Calculating the mean rating of these users for other movies and getting the top 10
+ab_other = ratings %>%
+  filter(user_id %in% users_ab$user_id) %>%
+  group_by(movie_id) %>%
+  summarise(mean_rating = mean(rating, na.rm = TRUE)) %>%
+  arrange(desc(mean_rating)) %>%
+  slice(1:10)
+
+# Adding the movies names from the movies dataset
+movie_names = data.frame()
+movie_names = subset(movies, Movie_id %in% ab_other$movie_id, select = c(Movie_id,Movie))
+colnames(movie_names) = c("movie_id", "movie")
+ab_other <- merge(ab_other,movie_names,by="movie_id")
+
+
+# Printing the results
+print("People who rated American Beauty with 5 also highly rated the following:")
+for (i in 1:10){
+  print(paste(ab_other[i,2],",", ab_other[i,3]))
+}
+
+```
+
+
